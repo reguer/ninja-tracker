@@ -1,0 +1,4 @@
+﻿ProyectoID,Nombre,Categoria,Subcategoria,Estado,Prioridad,PrioridadReal,Inicio,FechaObjetivo,HorasTotalesEstimadas,HorasAsignadasSemana,TieneMantenimiento,HorasMantenimientoSemana,DependenciaProyectoID,Avance%,Activo,CapacidadAfectada,EscenarioSemana,Notas
+PRJ-010,Lanzar newsletter,Negocio,Marketing,en_progreso,alta,critica,2026-01-15,2026-05-30,90,7,SI,1,,0.25,SI,solo_proyectos,base,Objetivo primer envio semanal
+PRJ-011,Portafolio web,Carrera,Marca personal,no_iniciado,media,media,2026-02-01,2026-06-15,60,5,NO,0,PRJ-010,0,SI,solo_proyectos,base,Depende de branding
+PRJ-012,Sistema finanzas,Personal,Finanzas,pausado,media,baja,2026-01-10,2026-04-30,40,2,SI,0.5,,0.4,NO,solo_proyectos,pico,Reactivar en Q3

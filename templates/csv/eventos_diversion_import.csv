@@ -1,0 +1,4 @@
+﻿EventoID,Nombre,TipoImpacto,Inicio,Fin,HorasBloqueadas,PorcentajeReduccion,AmbitoAfectado,CapacidadAfectada,EscenarioSemana,Activo,Notas
+DIV-010,Viaje familiar,bloqueo_total,2026-08-10,2026-08-16,0,0,todo_tiempo,solo_proyectos,vacaciones,SI,Bloqueo total de agenda
+DIV-011,Concierto,bloqueo_horas,2026-04-22,2026-04-22,5,0,solo_proyectos,solo_proyectos,base,SI,Tarde completa
+DIV-012,Temporada social,reduccion_parcial,2026-12-01,2026-12-31,0,0.3,solo_proyectos,solo_proyectos,bloqueo_parcial,SI,Mes con disponibilidad reducida
