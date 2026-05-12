@@ -4,18 +4,57 @@ import Semana from './views/Semana.jsx'
 import Actividades from './views/Actividades.jsx'
 import Proyectos from './views/Proyectos.jsx'
 import Dashboard from './views/Dashboard.jsx'
+import Mes from './views/Mes.jsx'
+import Año from './views/Año.jsx'
 import ActivityModal from './components/ActivityModal.jsx'
 
+const STORAGE_KEY = 'ninja_tracker_v2'
+
 const VIEWS = [
-  { id:'semana',      label:'Semana',      icon:'▦' },
-  { id:'actividades', label:'Actividades', icon:'≡' },
-  { id:'proyectos',   label:'Proyectos',   icon:'▲' },
-  { id:'resumen',     label:'Resumen',     icon:'◉' },
+  { id: 'semana',      label: 'Semana',      icon: '▦' },
+  { id: 'mes',         label: 'Mes',         icon: '▣' },
+  { id: 'año',         label: 'Año',         icon: '◈' },
+  { id: 'actividades', label: 'Actividades', icon: '≡' },
+  { id: 'proyectos',   label: 'Proyectos',   icon: '▲' },
+  { id: 'resumen',     label: 'Resumen',     icon: '◉' },
 ]
+
+function exportData() {
+  const raw = localStorage.getItem(STORAGE_KEY) || '{}'
+  const blob = new Blob([raw], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `ninja-tracker-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function importData(callback) {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json,application/json'
+  input.onchange = async e => {
+    const file = e.target.files[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      JSON.parse(text) // validate
+      localStorage.setItem(STORAGE_KEY, text)
+      callback?.()
+      window.location.reload()
+    } catch {
+      alert('Archivo inválido. Asegúrate de importar un JSON exportado por Ninja Tracker.')
+    }
+  }
+  input.click()
+}
 
 export default function App() {
   const [view, setView] = useState('semana')
   const [modalOpen, setModalOpen] = useState(false)
+  const [hiddenCats, setHiddenCats] = useState(new Set())
+
   const store = useStore()
   const {
     state, setConfig,
@@ -26,8 +65,15 @@ export default function App() {
     reset,
   } = store
 
-  // Semana view is full-height, no padding
-  const isSemana = view === 'semana'
+  function toggleFilter(catId) {
+    setHiddenCats(prev => {
+      const next = new Set(prev)
+      next.has(catId) ? next.delete(catId) : next.add(catId)
+      return next
+    })
+  }
+
+  const isFullHeight = view === 'semana' || view === 'mes' || view === 'año'
 
   function renderView() {
     switch (view) {
@@ -40,6 +86,22 @@ export default function App() {
           addActividad={addActividad}
           addProyecto={addProyecto}
           addBloqueo={addBloqueo}
+          hiddenCats={hiddenCats}
+          onToggleFilter={toggleFilter}
+        />
+      )
+      case 'mes': return (
+        <Mes
+          state={state}
+          hiddenCats={hiddenCats}
+          onToggleFilter={toggleFilter}
+        />
+      )
+      case 'año': return (
+        <Año
+          state={state}
+          hiddenCats={hiddenCats}
+          onToggleFilter={toggleFilter}
         />
       )
       case 'actividades': return (
@@ -97,6 +159,26 @@ export default function App() {
           </button>
         </div>
 
+        {/* Export / Import */}
+        <div style={{ padding: '6px 10px', display: 'flex', gap: 4 }}>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1, justifyContent: 'center', fontSize: 10 }}
+            onClick={exportData}
+            title="Exportar datos como JSON"
+          >
+            ↓ Exportar
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            style={{ flex: 1, justifyContent: 'center', fontSize: 10 }}
+            onClick={() => importData()}
+            title="Importar datos desde JSON"
+          >
+            ↑ Importar
+          </button>
+        </div>
+
         <div style={{ marginTop: 'auto', padding: '8px 12px', borderTop: '1px solid var(--border)' }}>
           <button
             className="btn btn-ghost btn-sm"
@@ -108,7 +190,7 @@ export default function App() {
         </div>
       </nav>
 
-      <main className={isSemana ? 'main-content main-full' : 'main-content'}>
+      <main className={isFullHeight ? 'main-content main-full' : 'main-content'}>
         {renderView()}
       </main>
 

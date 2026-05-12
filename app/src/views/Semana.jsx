@@ -2,17 +2,18 @@ import { useState } from 'react'
 import ActivityPanel from '../components/ActivityPanel.jsx'
 import WeekCalendar from '../components/WeekCalendar.jsx'
 import ActivityModal from '../components/ActivityModal.jsx'
+import ActivityFilter from '../components/ActivityFilter.jsx'
 import { ESCENARIOS, ESCENARIO_LABEL } from '../store.js'
 import { calcular } from '../engine.js'
 
-export default function Semana({ state, setConfig, updateActividad, updateProyecto, addActividad, addProyecto, addBloqueo }) {
+export default function Semana({ state, setConfig, updateActividad, updateProyecto, addActividad, addProyecto, addBloqueo, hiddenCats, onToggleFilter }) {
   const [dragSource, setDragSource] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const { config, actividades, proyectos } = state
 
   const resultado = calcular(state)
   const { saldoLibre, capacidadNeta, semaforo } = resultado
-  const semaforoColor = { OK:'var(--ok)', RIESGO:'var(--riesgo)', SATURADO:'var(--saturado)' }[semaforo]
+  const semaforoColor = { OK: 'var(--ok)', RIESGO: 'var(--riesgo)', SATURADO: 'var(--saturado)' }[semaforo]
 
   function onDragStart(e, item) {
     e.dataTransfer.effectAllowed = 'copy'
@@ -38,7 +39,7 @@ export default function Semana({ state, setConfig, updateActividad, updateProyec
 
         {/* Top bar */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
           padding: '8px 12px', borderBottom: '1px solid var(--border)',
           background: 'var(--surface)', flexShrink: 0,
         }}>
@@ -54,7 +55,6 @@ export default function Semana({ state, setConfig, updateActividad, updateProyec
                   background: config.escenarioActivo === esc ? 'var(--gold)' : 'transparent',
                   color: config.escenarioActivo === esc ? '#0f0f13' : 'var(--text-muted)',
                 }}
-                // NOTE: escenario selector via setConfig passed through store
               >
                 {ESCENARIO_LABEL[esc]}
               </button>
@@ -75,22 +75,22 @@ export default function Semana({ state, setConfig, updateActividad, updateProyec
             </span>
           </div>
 
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', flex: 1 }}>
-            Arrastra actividades del panel · Click en bloque para editar · Arrastra borde inferior para redimensionar
-          </div>
+          {/* Filter */}
+          <ActivityFilter hiddenCats={hiddenCats} onToggle={onToggleFilter} />
 
-          <button className="btn btn-primary btn-sm" onClick={() => setModalOpen(true)}>
+          <button className="btn btn-primary btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setModalOpen(true)}>
             + Nueva
           </button>
         </div>
 
-        {/* Calendar */}
-        <div style={{ flex: 1, overflow: 'hidden', padding: '8px 8px 0' }}>
+        {/* Calendar — flex container so WeekCalendar can scroll */}
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: '8px 8px 0' }}>
           <WeekCalendar
             actividades={actividades}
             proyectos={proyectos}
             escenario={config.escenarioActivo}
             dragSource={dragSource}
+            hiddenCats={hiddenCats}
             onUpdateActividad={updateActividad}
             onUpdateProyecto={updateProyecto}
           />
