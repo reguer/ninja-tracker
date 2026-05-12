@@ -144,6 +144,88 @@ def post(wb):
     for s,c in {'Actividades':27,'Proyectos':24,'FasesProyecto':14,'EventosDiversion':12,'RegistroHabitos':6}.items():
         ws=wb[s]; grid(ws,2,500,c); ws.auto_filter.ref=ws.dimensions
 
+def formulario(wb):
+    """Hoja de entrada guiada: reemplaza edición directa en Actividades/Proyectos/Fases."""
+    ws = wb.create_sheet('Formulario_Entrada')
+    ws['A1'] = 'FORMULARIO DE ENTRADA — Ninja Tracker'
+    ws['A1'].font = Font(size=14, bold=True, color='1F4E78')
+
+    # --- Sección Básicos / Recurrentes ---
+    ws['A3'] = 'ACTIVIDADES (Básicos y Recurrentes)'
+    ws['A3'].font = Font(bold=True, color='FFFFFF')
+    ws['A3'].fill = PatternFill('solid', fgColor='1F4E78')
+    h_act = ['ID','Nombre','Tipo','Escenarios','DiaSemana','HoraInicio','HoraFin','HorasPorSemana_calc','Activo','Notas']
+    hdr(ws, 4, h_act)
+    # Fórmula HorasPorSemana desde franjas: (HoraFin - HoraInicio) sumada por ID
+    # En este formulario simplificado una fila = una franja
+    for r in range(5, 105):
+        ws[f'H{r}'] = f'=IF(OR($E{r}="", $F{r}="", $G{r}=""), "", ($G{r}-$F{r})*24)'
+        ws[f'H{r}'].number_format = '0.00'
+
+    ws['A3'].fill = PatternFill('solid', fgColor='1F4E78')
+    ws.merge_cells('A3:J3')
+
+    # Ejemplos
+    ws.append([]); ws.append([])  # skip to row 5
+    # Already at row 5 via header at 4 — insert sample data directly
+    ws['A5'] = 'ACT-001'; ws['B5'] = 'Sueño'; ws['C5'] = 'basico'
+    ws['D5'] = 'base,vacaciones,pico,bloqueo_parcial'; ws['E5'] = 'lunes'
+    ws['F5'] = 0.0; ws['G5'] = 0.333  # 00:00 - 08:00 como fracción de día
+    ws['F5'].number_format = '[h]:mm'; ws['G5'].number_format = '[h]:mm'
+    ws['I5'] = 'SI'
+
+    # --- Sección Proyectos ---
+    ws['A108'] = 'PROYECTOS'
+    ws['A108'].font = Font(bold=True, color='FFFFFF')
+    ws['A108'].fill = PatternFill('solid', fgColor='1F4E78')
+    ws.merge_cells('A108:M108')
+    h_pro = ['ID','Nombre','Estado','HorasTotales','Avance%','Inicio','FinFijo','DependeDe','DiaSemana','HoraInicio','HoraFin','HorasPorSemana_calc','FinEstimado_calc']
+    hdr(ws, 109, h_pro)
+    for r in range(110, 160):
+        # HorasPorSemana_calc: suma de franjas — simplificado aquí como (HoraFin-HoraInicio)*24
+        ws[f'L{r}'] = f'=IF(OR($I{r}="", $J{r}="", $K{r}=""), "", ($K{r}-$J{r})*24)'
+        ws[f'L{r}'].number_format = '0.00'
+        # FinEstimado: Inicio + HorasRestantes/HorasPorSemana/5*7
+        ws[f'M{r}'] = (
+            f'=IF(OR($F{r}="", $L{r}="", $L{r}=0, $D{r}=""), "", '
+            f'$F{r}+ROUNDUP(($D{r}*(1-IF($E{r}="",0,$E{r})))/$L{r}*7, 0))'
+        )
+        ws[f'M{r}'].number_format = 'yyyy-mm-dd'
+
+    # --- Sección Fases ---
+    ws['A163'] = 'FASES DE PROYECTO'
+    ws['A163'].font = Font(bold=True, color='FFFFFF')
+    ws['A163'].fill = PatternFill('solid', fgColor='1F4E78')
+    ws.merge_cells('A163:L163')
+    h_fas = ['FaseID','ProyectoID','Orden','Nombre','HorasEstimadas','Avance%','DependeDeFaseID','DiaSemana','HoraInicio','HoraFin','HorasPorSemana_calc','InicioCalculado','FinCalculado']
+    hdr(ws, 164, h_fas)
+    for r in range(165, 215):
+        ws[f'K{r}'] = f'=IF(OR($H{r}="", $I{r}="", $J{r}=""), "", ($J{r}-$I{r})*24)'
+        ws[f'K{r}'].number_format = '0.00'
+        # FinCalculado: InicioCalculado + HorasEstimadas*(1-avance)/HorasPorSemana*7
+        ws[f'M{r}'] = (
+            f'=IF(OR($L{r}="", $K{r}="", $K{r}=0, $E{r}=""), "", '
+            f'$L{r}+ROUNDUP(($E{r}*(1-IF($F{r}="",0,$F{r})))/$K{r}*7, 0))'
+        )
+        ws[f'M{r}'].number_format = 'yyyy-mm-dd'
+
+    # Nota instruccional
+    ws['A218'] = 'INSTRUCCIONES'
+    ws['A218'].font = Font(bold=True)
+    instrucciones = [
+        ('1.', 'Llena los bloques Básicos/Recurrentes con tus franjas (una fila por franja por día).'),
+        ('2.', 'Llena los Proyectos con horas totales, avance y al menos una franja horaria.'),
+        ('3.', 'Llena las Fases. El campo InicioCalculado se actualiza automáticamente (Apps Script).'),
+        ('4.', 'Usa el menú "Ninja Tracker > Recalcular dependencias" para actualizar las fechas en cascada.'),
+        ('5.', 'Las hojas Actividades, Proyectos y FasesProyecto son el motor de cálculo — no editarlas directamente.'),
+    ]
+    for i, (num, txt) in enumerate(instrucciones, 219):
+        ws[f'A{i}'] = num; ws[f'B{i}'] = txt; ws[f'A{i}'].font = Font(bold=True)
+
+    widths(ws, {'A': 13, 'B': 28, 'C': 16, 'D': 30, 'E': 14, 'F': 12, 'G': 12, 'H': 18,
+                'I': 14, 'J': 12, 'K': 12, 'L': 18, 'M': 18})
+    ws.freeze_panes = 'A5'
+
 if __name__=='__main__':
-    wb=Workbook(); cfg(wb.active); cat(wb); act(wb); pro(wb); fas(wb); eve(wb); reg(wb); cal(wb); dash(wb); imp(wb); val(wb); post(wb)
+    wb=Workbook(); cfg(wb.active); cat(wb); act(wb); pro(wb); fas(wb); eve(wb); reg(wb); cal(wb); dash(wb); imp(wb); val(wb); formulario(wb); post(wb)
     OUT.parent.mkdir(parents=True,exist_ok=True); wb.save(OUT); print(f'Archivo generado: {OUT}')

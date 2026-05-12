@@ -1,0 +1,37 @@
+:root {
+  /* Colores base */
+  --bg: #0f0f13;
+  --surface: #1a1a22;
+  --surface2: #23232e;
+  --border: #2e2e3a;
+  --border-light: #3a3a4a;
+
+  /* Texto */
+  --text: #e8e8f0;
+  --text-muted: #7a7a90;
+  --text-dim: #50506a;
+
+  /* Acentos */
+  --gold: #d4a843;
+  --gold-dim: #8a6e2a;
+  --sage: #6ab187;
+  --sage-dim: #3d6650;
+  --rose: #c46b7a;
+  --blue: #5b8fd4;
+
+  /* Semáforo */
+  --ok: #6ab187;
+  --riesgo: #d4a843;
+  --saturado: #c46b7a;
+
+  /* Tipografía */
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Espaciado */
+  --radius: 10px;
+  --radius-sm: 6px;
+  --gap: 16px;
+  --gap-sm: 8px;
+  --gap-xs: 4px;
+}

@@ -94,6 +94,8 @@ function onOpen() {
     .addItem('Importar CSV > FasesProyecto', 'importarCsvFasesProyecto')
     .addItem('Importar CSV > EventosDiversion', 'importarCsvEventosDiversion')
     .addSeparator()
+    .addItem('Recalcular dependencias (fechas)', 'recalcularDependencias')
+    .addSeparator()
     .addItem('Refrescar Dashboard', 'refrescarDashboard')
     .addToUi();
 }
@@ -189,4 +191,152 @@ function mapHeaders_(headers) {
     acc[h] = i;
     return acc;
   }, {});
+}
+
+// ─── Dependencias entre proyectos y fases ───────────────────────────────────
+
+/**
+ * Recalcula fechas de inicio en cascada para Proyectos y FasesProyecto.
+ * Llama desde el menú o automáticamente vía onEdit.
+ */
+function recalcularDependencias() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  _recalcularProyectos(ss);
+  _recalcularFases(ss);
+  SpreadsheetApp.getActiveSpreadsheet().toast('Fechas de dependencias actualizadas.', 'Ninja Tracker', 3);
+}
+
+function _recalcularProyectos(ss) {
+  const ws = ss.getSheetByName('Proyectos');
+  if (!ws) return;
+
+  const data = ws.getDataRange().getValues();
+  const headers = data[0];
+  const idCol     = headers.indexOf('ProyectoID');
+  const inicioCol = headers.indexOf('Inicio');
+  const horasTotCol = headers.indexOf('HorasTotalesEstimadas');
+  const horasSemanCol = headers.indexOf('HorasAsignadasSemana');
+  const avanceCol = headers.indexOf('Avance%');
+  const depCol    = headers.indexOf('DependenciaProyectoID');
+  const finCalcCol = headers.indexOf('FechaProbableFinCalc');
+
+  if (idCol < 0 || inicioCol < 0 || depCol < 0) return;
+
+  // Mapear id → rowIndex (0-based en data array, offset +1 para la hoja)
+  const idToRow = {};
+  for (let r = 1; r < data.length; r++) {
+    const id = data[r][idCol];
+    if (id) idToRow[id] = r;
+  }
+
+  // Calcular fin estimado de una fila
+  function finEstimado(row) {
+    const inicio = row[inicioCol];
+    const horasTot = parseFloat(row[horasTotCol]) || 0;
+    const horasSem = parseFloat(row[horasSemanCol]) || 0;
+    const avance   = parseFloat(row[avanceCol]) || 0;
+    if (!inicio || horasSem <= 0 || horasTot <= 0) return null;
+    const horasRestantes = horasTot * (1 - avance);
+    const diasRestantes  = Math.ceil((horasRestantes / horasSem) * 7);
+    const d = new Date(inicio);
+    d.setDate(d.getDate() + diasRestantes);
+    return d;
+  }
+
+  // Resolver inicio respetando dependencia (máx 20 iteraciones para evitar ciclos)
+  function resolverInicio(rowIdx, depth) {
+    if (depth > 20) return null;
+    const row = data[rowIdx];
+    const depId = row[depCol];
+    if (!depId || !idToRow[depId]) return row[inicioCol] ? new Date(row[inicioCol]) : null;
+    const depRowIdx = idToRow[depId];
+    const finDep = finEstimado(data[depRowIdx]);
+    if (!finDep) return row[inicioCol] ? new Date(row[inicioCol]) : null;
+    const inicio = new Date(finDep);
+    inicio.setDate(inicio.getDate() + 1);
+    return inicio;
+  }
+
+  // Aplicar fechas calculadas a las celdas de Inicio
+  for (let r = 1; r < data.length; r++) {
+    if (!data[r][idCol]) continue;
+    const depId = data[r][depCol];
+    if (!depId) continue;
+    const nuevoInicio = resolverInicio(r, 0);
+    if (!nuevoInicio) continue;
+    const cell = ws.getRange(r + 1, inicioCol + 1);
+    cell.setValue(nuevoInicio);
+    cell.setNumberFormat('yyyy-mm-dd');
+    data[r][inicioCol] = nuevoInicio; // actualiza en memoria para cascada
+  }
+}
+
+function _recalcularFases(ss) {
+  const ws = ss.getSheetByName('FasesProyecto');
+  if (!ws) return;
+
+  const data = ws.getDataRange().getValues();
+  const headers = data[0];
+  const idCol     = headers.indexOf('FaseID');
+  const inicioCol = headers.indexOf('InicioTentativo');
+  const horasCol  = headers.indexOf('HorasEstimadas');
+  const horasSemanCol = headers.indexOf('HorasAsignadasSemana');
+  const avanceCol = headers.indexOf('Avance%');
+  const depCol    = headers.indexOf('DependenciaFaseID');
+
+  if (idCol < 0 || inicioCol < 0 || depCol < 0) return;
+
+  const idToRow = {};
+  for (let r = 1; r < data.length; r++) {
+    const id = data[r][idCol];
+    if (id) idToRow[id] = r;
+  }
+
+  function finFase(row) {
+    const inicio   = row[inicioCol];
+    const horas    = parseFloat(row[horasCol]) || 0;
+    const horasSem = parseFloat(row[horasSemanCol]) || 0;
+    const avance   = parseFloat(row[avanceCol]) || 0;
+    if (!inicio || horasSem <= 0 || horas <= 0) return null;
+    const restantes = horas * (1 - avance);
+    const dias = Math.ceil((restantes / horasSem) * 7);
+    const d = new Date(inicio);
+    d.setDate(d.getDate() + dias);
+    return d;
+  }
+
+  for (let r = 1; r < data.length; r++) {
+    if (!data[r][idCol]) continue;
+    const depId = data[r][depCol];
+    if (!depId || !idToRow[depId]) continue;
+    const depRow = data[idToRow[depId]];
+    const fin = finFase(depRow);
+    if (!fin) continue;
+    const nuevoInicio = new Date(fin);
+    nuevoInicio.setDate(nuevoInicio.getDate() + 1);
+    const cell = ws.getRange(r + 1, inicioCol + 1);
+    cell.setValue(nuevoInicio);
+    cell.setNumberFormat('yyyy-mm-dd');
+    data[r][inicioCol] = nuevoInicio;
+  }
+}
+
+/**
+ * Trigger automático: recalcula dependencias cuando el usuario edita
+ * Proyectos o FasesProyecto en columnas clave.
+ */
+function onEdit(e) {
+  if (!e) return;
+  const sheetName = e.range.getSheet().getName();
+  const col = e.range.getColumn();
+
+  const watchSheets = {
+    'Proyectos': [8, 10, 11, 14, 15],        // Inicio, HorasTot, HorasSem, Dep, Avance
+    'FasesProyecto': [6, 7, 8, 9, 11],       // HorasEst, HorasSem, DepFaseID, InicioTentativo, Avance
+    'Formulario_Entrada': Array.from({length: 13}, (_, i) => i + 1),
+  };
+
+  if (watchSheets[sheetName] && watchSheets[sheetName].includes(col)) {
+    recalcularDependencias();
+  }
 }
